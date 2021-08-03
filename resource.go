@@ -37,12 +37,16 @@ func (x *ResourceHint) Put(data string) (*Resource, error) {
 }
 
 func putFileResource(dirname string, data string) (*Resource, error) {
-	f, err := ioutil.TempFile(dirname, "mare-*.tsv")
+	f, err := ioutil.TempFile(dirname, "mare-*.json")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create a temp file")
 	}
+	defer f.Close()
 	_, err = f.Write([]byte(data))
-	return nil, errors.Wrap(err, "failed to write")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to write")
+	}
+	return &Resource{Backend: ResourceBackend_FILE, Locator: f.Name()}, nil
 }
 
 

@@ -2,11 +2,9 @@ package mare
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	tracing "github.com/ease-lab/vhive/utils/tracing/go"
 	"github.com/pkg/errors"
@@ -61,11 +59,13 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get input")
 	}
+	inputPairs := UnmarshalPairs(inputData)
+
+	logrus.Debugf("Mapping %d input pairs", len(inputPairs))
 
 	results := make(map[string][]string)
-	for _, line := range strings.Split(inputData, "\n") {
-		columns := strings.Split(line, "\t")
-		curResults, err := m.mapper.Map(ctx, Pair{Key: columns[0], Value: columns[1]})
+	for _, pair := range inputPairs {
+		curResults, err := m.mapper.Map(ctx, Pair{Key: pair.Key, Value: pair.Value})
 		if err != nil {
 			return nil, errors.Wrap(err, "mapper error")
 		}
@@ -74,9 +74,11 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 		}
 	}
 
+	logrus.Debugf("Mapper outputing %d groupped-values", len(results))
+
 	outputs := make(map[string]*Resource)
 	for key, values := range results {
-		outputs[key], err = request.OutputHint.Put(serializeValues(values))
+		outputs[key], err = request.OutputHint.Put(MarshalValues(values))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to put output")
 		}
@@ -87,30 +89,29 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 	}, nil
 }
 
-func serializeValues(values []string) string {
-	m, err := json.MarshalIndent(values, "", "\t")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	return string(m)
-}
-
 func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchRequest) (*ReduceBatchResponse, error) {
 	var inputValues []string
+
+	logrus.Debugf("Concatenating %d inputs to be reduced", len(request.Inputs))
+
 	for _, resource := range request.Inputs {
-		val, err := resource.Get()
+		inputData, err := resource.Get()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get input")
 		}
-		inputValues = append(inputValues, val)
+		inputValues = append(inputValues, UnmarshalValues(inputData)...)
 	}
+
+	logrus.Debugf("Reducing %d values", len(inputValues))
 
 	results, err := m.reducer.Reduce(ctx, request.Key, inputValues)
 	if err != nil {
 		return nil, errors.Wrap(err, "reducer error")
 	}
 
-	output, err := request.OutputHint.Put(serializePairs(results))
+	logrus.Debugf("Reducer outputting %d pairs", len(results))
+
+	output, err := request.OutputHint.Put(MarshalPairs(results))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to put output")
 	}
@@ -118,10 +119,3 @@ func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchReques
 	return &ReduceBatchResponse{Output: output}, nil
 }
 
-func serializePairs(pairs []Pair) string {
-	m, err := json.MarshalIndent(pairs, "", "\t")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	return string(m)
-}

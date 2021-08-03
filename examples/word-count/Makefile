@@ -1,2 +1,4 @@
-bin/word-count: word-count.go
+.PHONY: bin/word-count
+
+bin/word-count:
 	go build -o bin/word-count .
