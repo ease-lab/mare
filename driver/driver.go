@@ -23,6 +23,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 
 	tracing "github.com/ease-lab/vhive/utils/tracing/go"
 	"github.com/sirupsen/logrus"
@@ -59,7 +60,7 @@ func main() {
 	interResources := runMappers(ctx, *workerURL, &inputResource, &interResHint)
 	finalOutput := runReducers(ctx, *workerURL, interResources, &outputResHint)
 
-	logrus.Info(finalOutput)
+	fmt.Println(finalOutput.Locator)
 }
 
 func runMappers(ctx context.Context, workerURL string, input *mare.Resource, outputHint *mare.ResourceHint) (outputs map[string][]*mare.Resource) {
