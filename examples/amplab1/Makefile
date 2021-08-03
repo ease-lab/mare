@@ -18,43 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-name: Integration Tests
+.PHONY: bin/amplab1
 
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  word-count:
-    name: Word Count (FILE Backend)
-    runs-on: ubuntu-18.04
-    strategy:
-      matrix:
-        example:
-          - word-count
-          - amplab1
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Build driver
-        working-directory: driver
-        run: make
-
-      - name: Build worker
-        working-directory: examples/${{ matrix.example }}
-        run: make
-
-      - name: Start worker in the background
-        working-directory: examples/${{ matrix.example }}
-        env:
-          PORT: 8080
-        run: ./bin/${{ matrix.example }} &
-
-      - name: Test
-        run: ./driver/bin/driver -inputResourceLocator input.tsv > examples/${{ matrix.example }}/outputFileName
-
-      - name: Verify
-        run: cat $(cat examples/${{ matrix.example }}/outputFileName) | LC_ALL=C sort - | cmp examples/${{ matrix.example }}/expected-output.tsv -
+bin/amplab1:
+	go build -o bin/amplab1 .
