@@ -21,37 +21,34 @@
 package mare
 
 import (
-	"encoding/json"
-
-	"github.com/sirupsen/logrus"
+	"bytes"
+	"fmt"
+	"strings"
 )
 
 func MarshalPairs(pairs []Pair) string {
-	m, err := json.MarshalIndent(pairs, "", "\t")
-	if err != nil {
-		logrus.Fatal("Failed to marshal pairs: ", err)
+	buffer := new(bytes.Buffer)
+	for _, pair := range pairs {
+		buffer.WriteString(fmt.Sprintf("%s\t%s\n", pair.Key, pair.Value))
 	}
-	return string(m)
+	return buffer.String()
 }
 
 func UnmarshalPairs(data string) (pairs []Pair) {
-	if err := json.Unmarshal([]byte(data), &pairs); err != nil {
-		logrus.Fatal("Failed to unmarshal pairs: ", err)
+	for _, line := range strings.Split(data, "\n") {
+		if line == "" {
+			continue
+		}
+		cells := strings.Split(line, "\t")
+		pairs = append(pairs, Pair{Key: cells[0], Value: cells[1]})
 	}
 	return
 }
 
 func MarshalValues(values []string) string {
-	m, err := json.MarshalIndent(values, "", "\t")
-	if err != nil {
-		logrus.Fatal("Failed to marshal values: ", err)
-	}
-	return string(m)
+	return strings.Join(values, "\n")
 }
 
 func UnmarshalValues(data string) (values []string) {
-	if err := json.Unmarshal([]byte(data), &values); err != nil {
-		logrus.Fatal("Failed to unmarshal values: ", err)
-	}
-	return
+	return strings.Split(data, "\n")
 }

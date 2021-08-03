@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import json
 import sys
 
 
@@ -31,4 +30,7 @@ def tokenize():
 
 
 if __name__ == "__main__":
-	json.dump([{"K": token, "V": ""} for token in tokenize()], sys.stdout)
+	for token in tokenize():
+		if "\t" in token:
+			continue
+		print("{}\t".format(token), file=sys.stdout)

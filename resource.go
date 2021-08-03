@@ -57,7 +57,7 @@ func (x *ResourceHint) Put(data string) (*Resource, error) {
 }
 
 func putFileResource(dirname string, data string) (*Resource, error) {
-	f, err := ioutil.TempFile(dirname, "mare-*.json")
+	f, err := ioutil.TempFile(dirname, "mare-*.tsv")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create a temp file")
 	}

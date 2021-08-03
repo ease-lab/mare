@@ -52,4 +52,4 @@ jobs:
         run: ./driver/bin/driver -inputResourceLocator metamorphosis.json > examples/word-count/outputFileName
 
       - name: Verify
-        run: cat $(cat examples/word-count/outputFileName) | jq -r '.[] | "\(.K)\t\(.V)"' | LC_ALL=C sort - | cmp examples/word-count/expected-output.tsv -
+        run: cat $(cat examples/word-count/outputFileName) | LC_ALL=C sort - | cmp examples/word-count/expected-output.tsv -
