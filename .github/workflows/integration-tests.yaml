@@ -55,7 +55,9 @@ jobs:
         run: ./bin/${{ matrix.example }} &
 
       - name: Test
-        run: ./driver/bin/driver -inputResourceLocator input.tsv > examples/${{ matrix.example }}/outputFileName
+        working-directory: examples/${{ matrix.example }}
+        run: ../../driver/bin/driver inputs/* > outputFileName
 
       - name: Verify
-        run: cat $(cat examples/${{ matrix.example }}/outputFileName) | LC_ALL=C sort - | cmp examples/${{ matrix.example }}/expected-output.tsv -
+        working-directory: examples/${{ matrix.example }}
+        run: LC_ALL=C sort $(cat outputFileName) | cmp expected-output.tsv -

@@ -35,7 +35,6 @@ import (
 
 var workerURL = flag.String("workerURL", "127.0.0.1:8080", "URL of the mapper/reducer workers including the port number")
 var inputResourceBackend = flag.String("inputResourceBackend", "FILE", "Backend of the input resource. Either one of \"FILE\", \"S3\", or \"XDT\".")
-var inputResourceLocator = flag.String("inputResourceLocator", "", "Locator of the input resource")
 var interBack = flag.String("interBack", "FILE", "Backend of the intermediate resources.")
 var interHint = flag.String("interHint", "", "Hint for the intermediate resources.")
 var outputBack = flag.String("outputBack", "FILE", "Backend of the final output resources.")
@@ -43,9 +42,12 @@ var outputHint = flag.String("outputHint", "", "Hint for the final output resour
 
 func main() {
 	flag.Parse()
-	inputResource := mare.Resource{
-		Backend: mare.ResourceBackend(mare.ResourceBackend_value[*inputResourceBackend]),
-		Locator: *inputResourceLocator,
+	var inputResources []*mare.Resource
+	for _, locator := range flag.Args() {
+		inputResources = append(inputResources, &mare.Resource{
+			Backend: mare.ResourceBackend(mare.ResourceBackend_value[*inputResourceBackend]),
+			Locator: locator,
+		})
 	}
 	interResHint := mare.ResourceHint{
 		Backend: mare.ResourceBackend(mare.ResourceBackend_value[*interBack]),
@@ -57,16 +59,13 @@ func main() {
 	}
 
 	ctx := context.Background()
-	interResources := runMappers(ctx, *workerURL, &inputResource, &interResHint)
+	interResources := runMappers(ctx, *workerURL, inputResources, &interResHint)
 	finalOutput := runReducers(ctx, *workerURL, interResources, &outputResHint)
 
 	fmt.Println(finalOutput.Locator)
 }
 
-func runMappers(ctx context.Context, workerURL string, input *mare.Resource, outputHint *mare.ResourceHint) (outputs map[string][]*mare.Resource) {
-	// TODO: slice inputs
-	inputSlices := []*mare.Resource{input}
-
+func runMappers(ctx context.Context, workerURL string, inputSlices []*mare.Resource, outputHint *mare.ResourceHint) (outputs map[string][]*mare.Resource) {
 	outputCh := make(chan map[string]*mare.Resource)
 
 	for _, inputSlice := range inputSlices {
