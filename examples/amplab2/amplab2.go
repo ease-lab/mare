@@ -22,6 +22,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -31,40 +32,43 @@ import (
 	"github.com/ease-lab/mare"
 )
 
-const pageRankCutoff = 50
+const subStrX = 8
 
-type amplab1 struct{}
+type amplab2 struct{}
 
-func (a *amplab1) Map(_ context.Context, pair mare.Pair) ([]mare.Pair, error) {
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (a *amplab2) Map(_ context.Context, pair mare.Pair) ([]mare.Pair, error) {
 	fields := strings.Split(pair.Key, ",")
-	if len(fields) != 3 {
+	if len(fields) != 9 {
 		return nil, errors.Errorf("Invalid record: %+v", pair)
 	}
 
-	pageURL := fields[0]
-	pageRank, err := strconv.Atoi(fields[1])
-	if err != nil {
-		return nil, errors.Errorf("Invalid page rank: %s", fields[1])
-	}
-
-	if pageRank > pageRankCutoff {
-		return []mare.Pair{{Key: pageURL, Value: fields[1]}}, nil
-	} else {
-		return nil, nil
-	}
+	sourceIP := fields[0]
+	adRevenue := fields[3]
+	return []mare.Pair{{Key: sourceIP[:min(subStrX, len(sourceIP))], Value: adRevenue}}, nil
 }
 
-func (a amplab1) Reduce(_ context.Context, key string, values []string) (output []mare.Pair, err error) {
+func (a *amplab2) Reduce(_ context.Context, key string, values []string) (output []mare.Pair, err error) {
+	totalRevenue := 0.0
 	for _, value := range values {
-		output = append(output, mare.Pair{Key: key, Value: value})
+		adRevenue, err := strconv.ParseFloat(value, 64)
+		if err == nil {
+			totalRevenue += adRevenue
+		}
 	}
-	return
+	return []mare.Pair{{Key: key, Value: fmt.Sprintf("%f", totalRevenue)}}, nil
 }
 
 func main() {
 	// logrus.SetLevel(logrus.DebugLevel)
-	amplab1 := new(amplab1)
-	if err := mare.Work(amplab1, amplab1); err != nil {
+	amplab2 := new(amplab2)
+	if err := mare.Work(amplab2, amplab2); err != nil {
 		logrus.Fatal("Failed to work: ", err)
 	}
 }
