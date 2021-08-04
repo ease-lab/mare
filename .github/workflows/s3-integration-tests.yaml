@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-name: Integration Tests
+name: S3 Integration Tests
 
 on:
   workflow_dispatch:
@@ -28,16 +28,23 @@ on:
     branches: [ main ]
 
 jobs:
-  word-count:
-    name: Word Count (FILE Backend)
+  example:
+    name: Example
     runs-on: ubuntu-18.04
     strategy:
+      fail-fast: false
       matrix:
         example:
           - word-count
           - amplab1
           - amplab2
     steps:
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-region: us-west-1
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
       - uses: actions/checkout@v2
 
       - name: Build driver
@@ -56,8 +63,20 @@ jobs:
 
       - name: Test
         working-directory: examples/${{ matrix.example }}
-        run: ../../driver/bin/driver inputs/* > outputFileName
+        run: |
+          set -x
+
+          ../../driver/bin/driver \
+            -inputResourceBackend S3 \
+            -interBack S3 -interHint s3://ease-lab-mare/workspaces/ci/${{ matrix.example }}/ \
+            -outputBack S3 -outputHint s3://ease-lab-mare/workspaces/ci/${{ matrix.example }}/ \
+            $(aws s3api list-objects --bucket ease-lab-mare --prefix examples/${{ matrix.example }}/inputs/ | jq -r '.Contents[].Key' | grep '.*.tsv' | sed 's/^/s3:\/\/ease-lab-mare\//') \
+            > outputFileName
 
       - name: Verify
         working-directory: examples/${{ matrix.example }}
-        run: LC_ALL=C sort $(cat outputFileName) | cmp expected-output.tsv -
+        run: aws s3 cp $(cat outputFileName) - | LC_ALL=C sort - | cmp expected-output.tsv -
+
+      - name: Clean up S3
+        if: ${{ always() }}
+        run: aws s3 rm s3://ease-lab-mare/workspaces/ci/${{ matrix.example }}/ --recursive

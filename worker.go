@@ -75,7 +75,7 @@ func Work(mapper Mapper, reducer Reducer) error {
 }
 
 func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*MapBatchResponse, error) {
-	inputData, err := request.Input.Get()
+	inputData, err := request.Input.Get(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get input")
 	}
@@ -98,7 +98,7 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 
 	outputs := make(map[string]*Resource)
 	for key, values := range results {
-		outputs[key], err = request.OutputHint.Put(MarshalValues(values))
+		outputs[key], err = request.OutputHint.Put(ctx, MarshalValues(values))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to put output")
 		}
@@ -115,7 +115,7 @@ func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchReques
 	logrus.Debugf("Concatenating %d inputs to be reduced", len(request.Inputs))
 
 	for _, resource := range request.Inputs {
-		inputData, err := resource.Get()
+		inputData, err := resource.Get(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get input")
 		}
@@ -131,7 +131,7 @@ func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchReques
 
 	logrus.Debugf("Reducer outputting %d pairs", len(results))
 
-	output, err := request.OutputHint.Put(MarshalPairs(results))
+	output, err := request.OutputHint.Put(ctx, MarshalPairs(results))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to put output")
 	}

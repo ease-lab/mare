@@ -21,18 +21,34 @@
 package mare
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"net/url"
+	"os"
+	"path"
+	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
-func (x *Resource) Get() (string, error) {
+func init() {
+	err := os.Setenv("AWS_SDK_LOAD_CONFIG", "true")
+	if err != nil {
+		logrus.Fatal("Failed to set AWS_SDK_LOAD_CONFIG")
+	}
+}
+
+func (x *Resource) Get(ctx context.Context) (string, error) {
 	switch x.Backend {
 	case ResourceBackend_FILE:
 		return getFileResource(x.Locator)
 	case ResourceBackend_S3:
-		panic("NOT IMPLEMENTED YET")
+		return getS3Resource(ctx, x.Locator)
 	case ResourceBackend_XDT:
 		panic("NOT IMPLEMENTED YET")
 	}
@@ -44,12 +60,37 @@ func getFileResource(path string) (string, error) {
 	return string(data), err
 }
 
-func (x *ResourceHint) Put(data string) (*Resource, error) {
+func getS3Resource(ctx context.Context, uri string) (string, error) {
+	parsed, err := parseS3URI(uri)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to parse S3 uri")
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to load AWS config")
+	}
+
+	s3Client := s3.NewFromConfig(cfg)
+	params := &s3.GetObjectInput{
+		Bucket: aws.String(parsed.Hostname()),
+		Key:    aws.String(parsed.Path),
+	}
+	resp, err := s3Client.GetObject(ctx, params)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to get object `%s`", uri)
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	return string(data), err
+}
+
+func (x *ResourceHint) Put(ctx context.Context, data string) (*Resource, error) {
 	switch x.Backend {
 	case ResourceBackend_FILE:
 		return putFileResource(x.Hint, data)
 	case ResourceBackend_S3:
-		panic("NOT IMPLEMENTED YET")
+		return putS3Resource(ctx, x.Hint, data)
 	case ResourceBackend_XDT:
 		panic("NOT IMPLEMENTED YET")
 	}
@@ -67,4 +108,43 @@ func putFileResource(dirname string, data string) (*Resource, error) {
 		return nil, errors.Wrap(err, "failed to write")
 	}
 	return &Resource{Backend: ResourceBackend_FILE, Locator: f.Name()}, nil
+}
+
+func putS3Resource(ctx context.Context, uri string, data string) (*Resource, error) {
+	parsed, err := parseS3URI(uri)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse S3 uri")
+	}
+	bucket := parsed.Hostname()
+	key := path.Join(parsed.Path, fmt.Sprintf("mare-%s.tsv", RandString(8)))
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load AWS config")
+	}
+
+	s3Client := s3.NewFromConfig(cfg)
+	params := &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+		Body:   strings.NewReader(data),
+	}
+	_, err = s3Client.PutObject(ctx, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to put object")
+	}
+
+	return &Resource{Backend: ResourceBackend_S3, Locator: fmt.Sprintf("s3://%s/%s", bucket, key)}, nil
+}
+
+// parseS3URI is copied from Corral.
+func parseS3URI(uri string) (*url.URL, error) {
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse S3URI: %s", err)
+	}
+
+	parsed.Path = strings.TrimPrefix(parsed.Path, "/")
+
+	return parsed, err
 }

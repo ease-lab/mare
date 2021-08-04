@@ -1,4 +1,5 @@
 **/bin/**
+.envrc
 
 # Created by https://www.toptal.com/developers/gitignore/api/go,linux,macos,windows,intellij+all,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,linux,macos,windows,intellij+all,visualstudiocode

@@ -106,14 +106,14 @@ func runReducers(ctx context.Context, workerURL string, inputs map[string][]*mar
 
 	var outputPairs []mare.Pair
 	for i := 0; i < len(inputs); i++ {
-		outputData, err := (<-outputCh).Get()
+		outputData, err := (<-outputCh).Get(ctx)
 		if err != nil {
 			logrus.Fatal("Failed to get reducer output: ", err)
 		}
 		outputPairs = append(outputPairs, mare.UnmarshalPairs(outputData)...)
 	}
 
-	output, err := outputHint.Put(mare.MarshalPairs(outputPairs))
+	output, err := outputHint.Put(ctx, mare.MarshalPairs(outputPairs))
 	if err != nil {
 		logrus.Fatal("Failed to put final output: ", err)
 	}
