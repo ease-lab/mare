@@ -66,7 +66,7 @@ func (a *amplab2) Reduce(_ context.Context, key string, values []string) (output
 }
 
 func main() {
-	// logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 	amplab2 := new(amplab2)
 	if err := mare.Work(amplab2, amplab2); err != nil {
 		logrus.Fatal("Failed to work: ", err)

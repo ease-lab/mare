@@ -52,7 +52,7 @@ func (c *counter) Reduce(_ context.Context, key string, values []string) ([]mare
 }
 
 func main() {
-	// logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 	counter := new(counter)
 	if err := mare.Work(counter, counter); err != nil {
 		logrus.Fatal("Failed to work: ", err)

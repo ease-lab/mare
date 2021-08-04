@@ -81,7 +81,7 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 	}
 	inputPairs := UnmarshalPairs(inputData)
 
-	logrus.Debugf("Mapping %d input pairs", len(inputPairs))
+	logrus.Debugf("Mapper processing %d input pairs...", len(inputPairs))
 
 	results := make(map[string][]string)
 	for _, pair := range inputPairs {
@@ -94,7 +94,7 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 		}
 	}
 
-	logrus.Debugf("Mapper outputing %d groupped-values", len(results))
+	logrus.Debugf("Mapper outputting %d groupped-values...", len(results))
 
 	outputs := make(map[string]*Resource)
 	for key, values := range results {
@@ -104,6 +104,8 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 		}
 	}
 
+	logrus.Debug("Mapper done.")
+
 	return &MapBatchResponse{
 		Outputs: outputs,
 	}, nil
@@ -112,7 +114,7 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchRequest) (*ReduceBatchResponse, error) {
 	var inputValues []string
 
-	logrus.Debugf("Concatenating %d inputs to be reduced", len(request.Inputs))
+	logrus.Debugf("Reducer concatenating %d partitions...", len(request.Inputs))
 
 	for _, resource := range request.Inputs {
 		inputData, err := resource.Get(ctx)
@@ -122,19 +124,21 @@ func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchReques
 		inputValues = append(inputValues, UnmarshalValues(inputData)...)
 	}
 
-	logrus.Debugf("Reducing %d values", len(inputValues))
+	logrus.Debugf("Reducer processing %d values...", len(inputValues))
 
 	results, err := m.reducer.Reduce(ctx, request.Key, inputValues)
 	if err != nil {
 		return nil, errors.Wrap(err, "reducer error")
 	}
 
-	logrus.Debugf("Reducer outputting %d pairs", len(results))
+	logrus.Debugf("Reducer outputting %d pairs...", len(results))
 
 	output, err := request.OutputHint.Put(ctx, MarshalPairs(results))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to put output")
 	}
+
+	logrus.Debug("Reducer done.")
 
 	return &ReduceBatchResponse{Output: output}, nil
 }
