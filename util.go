@@ -31,7 +31,7 @@ func init() {
 	rand.Seed(time.Now().UTC().Unix())
 }
 
-// RandString generates a random string of length `n`
+// RandString generates a random string of length `n`.
 func RandString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
@@ -39,3 +39,17 @@ func RandString(n int) string {
 	}
 	return string(b)
 }
+
+// Keys return the keys of map `m`.
+func Keys(m map[string]interface{}) (keys []string) {
+	keys = make([]string, len(m))
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+	return
+}
+
+
+

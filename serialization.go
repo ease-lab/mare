@@ -44,11 +44,3 @@ func UnmarshalPairs(data string) (pairs []Pair) {
 	}
 	return
 }
-
-func MarshalValues(values []string) string {
-	return strings.Join(values, "\n")
-}
-
-func UnmarshalValues(data string) (values []string) {
-	return strings.Split(data, "\n")
-}

@@ -59,29 +59,32 @@ func main() {
 	}
 
 	ctx := context.Background()
-	interResources := runMappers(ctx, *workerURL, inputResources, &interResHint)
-	finalOutput := runReducers(ctx, *workerURL, interResources, &outputResHint)
+	keys, values := runMappers(ctx, *workerURL, inputResources, &interResHint)
+	finalOutput := runReducers(ctx, *workerURL, keys, values, &outputResHint)
 
 	fmt.Println(finalOutput.Locator)
 }
 
-func runMappers(ctx context.Context, workerURL string, inputSlices []*mare.Resource, outputHint *mare.ResourceHint) (outputs map[string][]*mare.Resource) {
-	outputCh := make(chan map[string]*mare.Resource)
+func runMappers(ctx context.Context, workerURL string, inputSlices []*mare.Resource, outputHint *mare.ResourceHint) (keys []string, values []*mare.Resource) {
+	outputCh := make(chan *mare.MapBatchResponse)
 
 	for _, inputSlice := range inputSlices {
 		go invokeMapper(ctx, workerURL, inputSlice, outputHint, outputCh)
 	}
 
-	outputs = make(map[string][]*mare.Resource)
+	keysMap := make(map[string]interface{})
 	for i := 0; i < len(inputSlices); i++ {
-		for k, v := range <-outputCh {
-			outputs[k] = append(outputs[k], v)
+		mapBatchResponse := <-outputCh
+		for _, key := range mapBatchResponse.Keys {
+			keysMap[key] = nil
 		}
+		values = append(values, mapBatchResponse.Output)
 	}
+	keys = mare.Keys(keysMap)
 	return
 }
 
-func invokeMapper(ctx context.Context, workerURL string, input *mare.Resource, outputHint *mare.ResourceHint, outputCh chan<- map[string]*mare.Resource) {
+func invokeMapper(ctx context.Context, workerURL string, input *mare.Resource, outputHint *mare.ResourceHint, outputCh chan<- *mare.MapBatchResponse) {
 	conn := getGrpcConn(workerURL)
 	defer conn.Close()
 	client := mare.NewMareClient(conn)
@@ -94,18 +97,18 @@ func invokeMapper(ctx context.Context, workerURL string, input *mare.Resource, o
 		logrus.Fatal("Failed to invoke map batch: ", err)
 	}
 
-	outputCh <- resp.Outputs
+	outputCh <- resp
 }
 
-func runReducers(ctx context.Context, workerURL string, inputs map[string][]*mare.Resource, outputHint *mare.ResourceHint) *mare.Resource {
+func runReducers(ctx context.Context, workerURL string, keys []string, values []*mare.Resource, outputHint *mare.ResourceHint) *mare.Resource {
 	outputCh := make(chan *mare.Resource)
 
-	for key, values := range inputs {
+	for _, key := range keys {
 		go invokeReducer(ctx, workerURL, key, values, outputHint, outputCh)
 	}
 
 	var outputPairs []mare.Pair
-	for i := 0; i < len(inputs); i++ {
+	for i := 0; i < len(keys); i++ {
 		outputData, err := (<-outputCh).Get(ctx)
 		if err != nil {
 			logrus.Fatal("Failed to get reducer output: ", err)

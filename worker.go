@@ -83,45 +83,49 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 
 	logrus.Debugf("Mapper processing %d input pairs...", len(inputPairs))
 
-	results := make(map[string][]string)
+	outputPairs := make([]Pair, 0)
+	keys := make(map[string]interface{})
 	for _, pair := range inputPairs {
-		curResults, err := m.mapper.Map(ctx, Pair{Key: pair.Key, Value: pair.Value})
+		curOutputPairs, err := m.mapper.Map(ctx, Pair{Key: pair.Key, Value: pair.Value})
 		if err != nil {
 			return nil, errors.Wrap(err, "mapper error")
 		}
-		for _, result := range curResults {
-			results[result.Key] = append(results[result.Key], result.Value)
+		for _, pair := range curOutputPairs {
+			keys[pair.Key] = nil
+			outputPairs = append(outputPairs, pair)
 		}
 	}
 
-	logrus.Debugf("Mapper outputting %d groupped-values...", len(results))
+	logrus.Debugf("Mapper uploading %d pairs with %d unique keys...", len(outputPairs), len(keys))
 
-	outputs := make(map[string]*Resource)
-	for key, values := range results {
-		outputs[key], err = request.OutputHint.Put(ctx, MarshalValues(values))
-		if err != nil {
+	output, err := request.OutputHint.Put(ctx, MarshalPairs(outputPairs))
+	if err != nil {
 			return nil, errors.Wrap(err, "failed to put output")
 		}
-	}
 
 	logrus.Debug("Mapper done.")
 
 	return &MapBatchResponse{
-		Outputs: outputs,
+		Output: output,
+		Keys: Keys(keys),
 	}, nil
 }
 
 func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchRequest) (*ReduceBatchResponse, error) {
 	var inputValues []string
 
-	logrus.Debugf("Reducer concatenating %d partitions...", len(request.Inputs))
+	logrus.Debugf("Reducer concatenating %d input pairs...", len(request.Inputs))
 
 	for _, resource := range request.Inputs {
 		inputData, err := resource.Get(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get input")
 		}
-		inputValues = append(inputValues, UnmarshalValues(inputData)...)
+		for _, pair := range UnmarshalPairs(inputData) {
+			if pair.Key == request.Key {
+				inputValues = append(inputValues, pair.Value)
+			}
+		}
 	}
 
 	logrus.Debugf("Reducer processing %d values...", len(inputValues))
@@ -131,7 +135,7 @@ func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchReques
 		return nil, errors.Wrap(err, "reducer error")
 	}
 
-	logrus.Debugf("Reducer outputting %d pairs...", len(results))
+	logrus.Debugf("Reducer uploading %d pairs...", len(results))
 
 	output, err := request.OutputHint.Put(ctx, MarshalPairs(results))
 	if err != nil {
