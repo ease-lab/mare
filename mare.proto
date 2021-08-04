@@ -67,7 +67,7 @@ message MapBatchResponse {
 }
 
 message ReduceBatchRequest {
-    string key = 1;
+    repeated string keys = 1;
     repeated Resource inputs = 2;
     ResourceHint outputHint = 3;
 }

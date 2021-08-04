@@ -112,27 +112,30 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 }
 
 func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchRequest) (*ReduceBatchResponse, error) {
-	var inputValues []string
+	logrus.Debugf("Reducer concatenating %d input partitions...", len(request.Inputs))
 
-	logrus.Debugf("Reducer concatenating %d input pairs...", len(request.Inputs))
-
+	values := make(map[string][]string)
+	nValues := 0
 	for _, resource := range request.Inputs {
 		inputData, err := resource.Get(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get input")
 		}
 		for _, pair := range UnmarshalPairs(inputData) {
-			if pair.Key == request.Key {
-				inputValues = append(inputValues, pair.Value)
-			}
+			values[pair.Key] = append(values[pair.Key], pair.Value)
+			nValues++
 		}
 	}
 
-	logrus.Debugf("Reducer processing %d values...", len(inputValues))
+	logrus.Debugf("Reducer processing %d keys...", len(request.Keys))
 
-	results, err := m.reducer.Reduce(ctx, request.Key, inputValues)
-	if err != nil {
-		return nil, errors.Wrap(err, "reducer error")
+	var results []Pair
+	for _, key := range request.Keys {
+		curResults, err := m.reducer.Reduce(ctx, key, values[key])
+		if err != nil {
+			return nil, errors.Wrap(err, "reducer error")
+		}
+		results = append(results, curResults...)
 	}
 
 	logrus.Debugf("Reducer uploading %d pairs...", len(results))

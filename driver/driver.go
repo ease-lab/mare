@@ -39,6 +39,7 @@ var interBack = flag.String("interBack", "FILE", "Backend of the intermediate re
 var interHint = flag.String("interHint", "", "Hint for the intermediate resources.")
 var outputBack = flag.String("outputBack", "FILE", "Backend of the final output resources.")
 var outputHint = flag.String("outputHint", "", "Hint for the final output resources.")
+var nReducers = flag.Int("nReducers", 5, "Number of reducer invocations.")
 
 func main() {
 	flag.Parse()
@@ -103,12 +104,13 @@ func invokeMapper(ctx context.Context, workerURL string, input *mare.Resource, o
 func runReducers(ctx context.Context, workerURL string, keys []string, values []*mare.Resource, outputHint *mare.ResourceHint) *mare.Resource {
 	outputCh := make(chan *mare.Resource)
 
-	for _, key := range keys {
-		go invokeReducer(ctx, workerURL, key, values, outputHint, outputCh)
+	keysets := splitKeys(keys, *nReducers)
+	for _, keyset := range keysets {
+		go invokeReducer(ctx, workerURL, keyset, values, outputHint, outputCh)
 	}
 
 	var outputPairs []mare.Pair
-	for i := 0; i < len(keys); i++ {
+	for i := 0; i < len(keysets); i++ {
 		outputData, err := (<-outputCh).Get(ctx)
 		if err != nil {
 			logrus.Fatal("Failed to get reducer output: ", err)
@@ -123,13 +125,13 @@ func runReducers(ctx context.Context, workerURL string, keys []string, values []
 	return output
 }
 
-func invokeReducer(ctx context.Context, workerURL string, key string, values []*mare.Resource, outputHint *mare.ResourceHint, outputCh chan<- *mare.Resource) {
+func invokeReducer(ctx context.Context, workerURL string, keyset []string, values []*mare.Resource, outputHint *mare.ResourceHint, outputCh chan<- *mare.Resource) {
 	conn := getGrpcConn(workerURL)
 	defer conn.Close()
 	client := mare.NewMareClient(conn)
 
 	resp, err := client.ReduceBatch(ctx, &mare.ReduceBatchRequest{
-		Key:        key,
+		Keys:       keyset,
 		Inputs:     values,
 		OutputHint: outputHint,
 	})
@@ -149,4 +151,17 @@ func getGrpcConn(workerURL string) *grpc.ClientConn {
 		logrus.Fatal("Failed to dial: ", err)
 	}
 	return conn
+}
+
+func splitKeys(keys []string, n int) [][]string {
+	keySets := make([][]string, n)
+	l := len(keys) / n
+	for i := 0; i < n; i++ {
+		if i == n - 1 {
+			keySets[i] = keys[i*l:]
+		} else {
+			keySets[i] = keys[i*l : (i+1)*l]
+		}
+	}
+	return keySets
 }
