@@ -100,14 +100,14 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 
 	output, err := request.OutputHint.Put(ctx, MarshalPairs(outputPairs))
 	if err != nil {
-			return nil, errors.Wrap(err, "failed to put output")
-		}
+		return nil, errors.Wrap(err, "failed to put output")
+	}
 
 	logrus.Debug("Mapper done.")
 
 	return &MapBatchResponse{
 		Output: output,
-		Keys: Keys(keys),
+		Keys:   Keys(keys),
 	}, nil
 }
 
