@@ -181,7 +181,7 @@ func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchReques
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to put output")
 	}
-	EndSpan(spanReduce)
+	EndSpan(spanPut)
 
 	logrus.Debug("Reducer done.")
 
