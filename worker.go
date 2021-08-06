@@ -75,14 +75,25 @@ func Work(mapper Mapper, reducer Reducer) error {
 }
 
 func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*MapBatchResponse, error) {
+	spanGet := MakeSpan("worker: map.get")
+	spanUnmarshal := MakeSpan("worker: map.unmarshal")
+	spanMap := MakeSpan("worker: map.map")
+	spanPut := MakeSpan("worker: map.put")
+
+	ctx = StartSpan(spanGet, ctx)
 	inputData, err := request.Input.Get(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get input")
 	}
+	EndSpan(spanGet)
+
+	ctx = StartSpan(spanUnmarshal, ctx)
 	inputPairs := UnmarshalPairs(inputData)
+	EndSpan(spanUnmarshal)
 
 	logrus.Debugf("Mapper processing %d input pairs...", len(inputPairs))
 
+	ctx = StartSpan(spanMap, ctx)
 	outputPairs := make([]Pair, 0)
 	keys := make(map[string]interface{})
 	for _, pair := range inputPairs {
@@ -95,40 +106,59 @@ func (m *mareServer) MapBatch(ctx context.Context, request *MapBatchRequest) (*M
 			outputPairs = append(outputPairs, pair)
 		}
 	}
+	EndSpan(spanMap)
 
 	logrus.Debugf("Mapper uploading %d pairs with %d unique keys...", len(outputPairs), len(keys))
 
+	ctx = StartSpan(spanPut, ctx)
 	output, err := request.OutputHint.Put(ctx, MarshalPairs(outputPairs))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to put output")
 	}
+	EndSpan(spanPut)
 
 	logrus.Debug("Mapper done.")
 
 	return &MapBatchResponse{
 		Output: output,
-		Keys:   Keys(keys),
+		Keys:   MapKeys(keys),
 	}, nil
 }
 
 func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchRequest) (*ReduceBatchResponse, error) {
+	spanGet := MakeSpan("worker: reduce.get")
+	spanUnmarshal := MakeSpan("worker: reduce.unmarshal-merge")
+	spanReduce := MakeSpan("worker: reduce.reduce")
+	spanPut := MakeSpan("worker: reduce.put")
+
 	logrus.Debugf("Reducer concatenating %d input partitions...", len(request.Inputs))
 
 	values := make(map[string][]string)
 	nValues := 0
+
+	ctx = StartSpan(spanGet, ctx)
+	inputDatas := make([]string, 0)
 	for _, resource := range request.Inputs {
 		inputData, err := resource.Get(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get input")
 		}
+		inputDatas = append(inputDatas, inputData)
+	}
+	EndSpan(spanGet)
+
+	ctx = StartSpan(spanUnmarshal, ctx)
+	for _, inputData := range inputDatas {
 		for _, pair := range UnmarshalPairs(inputData) {
 			values[pair.Key] = append(values[pair.Key], pair.Value)
 			nValues++
 		}
 	}
+	EndSpan(spanUnmarshal)
 
 	logrus.Debugf("Reducer processing %d keys...", len(request.Keys))
 
+	ctx = StartSpan(spanReduce, ctx)
 	var results []Pair
 	for _, key := range request.Keys {
 		curResults, err := m.reducer.Reduce(ctx, key, values[key])
@@ -137,13 +167,16 @@ func (m *mareServer) ReduceBatch(ctx context.Context, request *ReduceBatchReques
 		}
 		results = append(results, curResults...)
 	}
+	EndSpan(spanReduce)
 
 	logrus.Debugf("Reducer uploading %d pairs...", len(results))
 
+	ctx = StartSpan(spanPut, ctx)
 	output, err := request.OutputHint.Put(ctx, MarshalPairs(results))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to put output")
 	}
+	EndSpan(spanReduce)
 
 	logrus.Debug("Reducer done.")
 

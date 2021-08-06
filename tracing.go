@@ -21,32 +21,27 @@
 package mare
 
 import (
-	"math/rand"
-	"time"
+	"context"
+
+	tracing "github.com/ease-lab/vhive/utils/tracing/go"
 )
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-func init() {
-	rand.Seed(time.Now().UTC().Unix())
+func MakeSpan(spanName string) tracing.Span {
+	return tracing.Span{
+		SpanName: spanName,
+		TracerName: spanName,
+	}
 }
 
-// RandString generates a random string of length `n`.
-func RandString(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
+func StartSpan(s tracing.Span, ctx context.Context) context.Context {
+	if tracing.IsTracingEnabled() {
+		ctx = s.StartSpan(ctx)
 	}
-	return string(b)
+	return ctx
 }
 
-// MapKeys return the keys of map `m`.
-func MapKeys(m map[string]interface{}) (keys []string) {
-	keys = make([]string, len(m))
-	i := 0
-	for k := range m {
-		keys[i] = k
-		i++
+func EndSpan(s tracing.Span) {
+	if tracing.IsTracingEnabled() {
+		s.EndSpan()
 	}
-	return
 }
