@@ -18,13 +18,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-.PHONY: bin/amplab1 image push
-
-bin/amplab1:
-	go build -o bin/amplab1 .
-
-image:
-	docker build -f Dockerfile ../.. --tag vhiveease/mare-benchmark-amplab1:latest
-
-push:
-	docker push vhiveease/mare-benchmark-amplab1:latest
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: worker
+spec:
+  template:
+    spec:
+      containers:
+        - image: docker.io/vhiveease/mare-benchmark-amplab1:latest
+          imagePullPolicy: Always
+          ports:
+            - name: h2c
+              containerPort: 8080

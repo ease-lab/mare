@@ -18,13 +18,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-.PHONY: bin/amplab1 image push
+FROM vhiveease/golang-builder AS builder
+WORKDIR /mare
+COPY . .
+WORKDIR /mare/examples/amplab1
+RUN go build -o bin/amplab1 .
 
-bin/amplab1:
-	go build -o bin/amplab1 .
-
-image:
-	docker build -f Dockerfile ../.. --tag vhiveease/mare-benchmark-amplab1:latest
-
-push:
-	docker push vhiveease/mare-benchmark-amplab1:latest
+FROM vhiveease/runner
+RUN apt-get update && apt-get install -y ca-certificates
+COPY --from=builder /mare/examples/amplab1/bin/amplab1 /usr/local/bin/amplab1
+ENTRYPOINT [ "/usr/local/bin/amplab1" ]
