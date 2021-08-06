@@ -8,9 +8,7 @@ export AWS_REGION=us-west-1
 
 ../../driver/bin/driver \
   -workerURL worker.default.192.168.1.240.sslip.io:80 \
+  -interBack S3 -interHint s3://ease-lab-mare/workspaces/manual/ \
+  -outputBack S3 -outputHint s3://ease-lab-mare/workspaces/manual/ \
   -inputResourceBackend S3 \
-  -interBack S3 \
-  -interHint s3://ease-lab-mare/workspaces/manual/ \
-  -outputBack S3 \
-  -outputHint s3://ease-lab-mare/workspaces/manual/ \
-  $(aws s3api list-objects --bucket ease-lab-mare --prefix benchmarks/amplab1/inputs/ | jq -r '.Contents[].Key' | grep '.*.tsv' | sed 's/^/s3:\/\/ease-lab-mare\//')
+  $(aws s3api list-objects --bucket ease-lab-mare --prefix examples/amplab1/inputs/ | jq -r '.Contents[].Key' | grep '.*.tsv' | sed 's/^/s3:\/\/ease-lab-mare\//')
