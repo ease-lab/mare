@@ -55,7 +55,7 @@ func Drive(
 		Backend: ResourceBackend(ResourceBackend_value[outputBack]),
 		Hint:    outputHint,
 	}
-	
+
 	keys, values := runMappers(ctx, workerURL, inputResources, &interResHint)
 	finalOutput := runReducers(ctx, workerURL, keys, nReducers, values, &outputResHint)
 

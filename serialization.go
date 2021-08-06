@@ -40,7 +40,12 @@ func UnmarshalPairs(data string) (pairs []Pair) {
 			continue
 		}
 		cells := strings.Split(line, "\t")
-		pairs = append(pairs, Pair{Key: cells[0], Value: cells[1]})
+		// if there are no "columns", assume empty key and take data as values
+		if len(cells) == 1 {
+			pairs = append(pairs, Pair{Key: "", Value: cells[0]})
+		} else {
+			pairs = append(pairs, Pair{Key: cells[0], Value: cells[1]})
+		}
 	}
 	return
 }

@@ -36,7 +36,7 @@ type counter struct{}
 func (c *counter) Map(_ context.Context, pair mare.Pair) (outputs []mare.Pair, err error) {
 	re := regexp.MustCompile(`[^a-zA-Z0-9\s]+`)
 
-	sanitized := strings.ToLower(re.ReplaceAllString(pair.Key, " "))
+	sanitized := strings.ToLower(re.ReplaceAllString(pair.Value, " "))
 	for _, word := range strings.Fields(sanitized) {
 		if len(word) == 0 {
 			continue
