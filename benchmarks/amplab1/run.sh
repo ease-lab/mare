@@ -13,4 +13,4 @@ export AWS_REGION=us-west-1
   -interHint s3://ease-lab-mare/workspaces/manual/ \
   -outputBack S3 \
   -outputHint s3://ease-lab-mare/workspaces/manual/ \
-  $(aws s3api list-objects --bucket ease-lab-vhive --prefix benchmarks/amplab1/inputs/ | jq -r '.Contents[].Key' | grep '.*.tsv' | sed 's/^/s3:\/\/ease-lab-vhive\//')
+  $(aws s3api list-objects --bucket ease-lab-mare --prefix benchmarks/amplab1/inputs/ | jq -r '.Contents[].Key' | grep '.*.tsv' | sed 's/^/s3:\/\/ease-lab-mare\//')
