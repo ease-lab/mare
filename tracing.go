@@ -26,21 +26,21 @@ import (
 	tracing "github.com/ease-lab/vhive/utils/tracing/go"
 )
 
-func MakeSpan(spanName string) tracing.Span {
-	return tracing.Span{
+func MakeSpan(spanName string) *tracing.Span {
+	return &tracing.Span{
 		SpanName: spanName,
 		TracerName: spanName,
 	}
 }
 
-func StartSpan(s tracing.Span, ctx context.Context) context.Context {
+func StartSpan(s *tracing.Span, ctx context.Context) context.Context {
 	if tracing.IsTracingEnabled() {
 		ctx = s.StartSpan(ctx)
 	}
 	return ctx
 }
 
-func EndSpan(s tracing.Span) {
+func EndSpan(s *tracing.Span) {
 	if tracing.IsTracingEnabled() {
 		s.EndSpan()
 	}
