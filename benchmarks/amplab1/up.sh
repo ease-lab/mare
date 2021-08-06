@@ -6,4 +6,5 @@
 kn service apply --wait-timeout 60 --filename worker.yml \
   --env AWS_REGION=us-west-1 \
   --env AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-  --env AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
+  --env AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+  --env ENABLE_TRACING='true'

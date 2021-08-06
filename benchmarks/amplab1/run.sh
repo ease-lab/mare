@@ -2,9 +2,11 @@
 
 set -x
 
-export AWS_REGION=us-west-1
 [ -z "$AWS_ACCESS_KEY_ID" ] && echo 'Must set AWS_ACCESS_KEY_ID' && exit 1;
 [ -z "$AWS_SECRET_ACCESS_KEY" ] && echo 'Must set AWS_SECRET_ACCESS_KEY' && exit 1;
+
+export AWS_REGION=us-west-1
+export ENABLE_TRACING='true'
 
 ../../driver/bin/driver \
   -workerURL worker.default.192.168.1.240.sslip.io:80 \
