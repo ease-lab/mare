@@ -65,19 +65,23 @@ func Drive(
 func runMappers(ctx context.Context, workerURL string, inputSlices []*Resource, outputHint *ResourceHint) (keys []string, values []*Resource) {
 	outputCh := make(chan *MapBatchResponse)
 
+	span := MakeSpan("driver: reduce.invokeAllMappers")
+	ctx = StartSpan(span, ctx)
 	for _, inputSlice := range inputSlices {
 		go invokeMapper(ctx, workerURL, inputSlice, outputHint, outputCh)
 	}
+	EndSpan(span)
 
 	keysMap := make(map[string]interface{})
 	for i := 0; i < len(inputSlices); i++ {
 		mapBatchResponse := <-outputCh
+		// To get a set of unique keys
 		for _, key := range mapBatchResponse.Keys {
 			keysMap[key] = nil
 		}
 		values = append(values, mapBatchResponse.Output)
 	}
-	keys = Keys(keysMap)
+	keys = MapKeys(keysMap)
 	return
 }
 
@@ -101,23 +105,43 @@ func runReducers(ctx context.Context, workerURL string, keys []string, nReducers
 	outputCh := make(chan *Resource)
 
 	keysets := splitKeys(keys, nReducers)
+
+	spanInvoke := MakeSpan("driver: reduce.invokeAllReducers")
+	ctx = StartSpan(spanInvoke, ctx)
 	for _, keyset := range keysets {
 		go invokeReducer(ctx, workerURL, keyset, values, outputHint, outputCh)
 	}
+	EndSpan(spanInvoke)
 
-	var outputPairs []Pair
+	spanGet := MakeSpan("driver: reduce.get")
+	ctx = StartSpan(spanGet, ctx)
+	var outputDatas []string
 	for i := 0; i < len(keysets); i++ {
 		outputData, err := (<-outputCh).Get(ctx)
 		if err != nil {
 			logrus.Fatal("Failed to get reducer output: ", err)
 		}
+		outputDatas = append(outputDatas, outputData)
+	}
+	EndSpan(spanGet)
+
+	spanUnmarshalCatMarshal := MakeSpan("driver: reduce.unmarshal-cat-marshal")
+	ctx = StartSpan(spanUnmarshalCatMarshal, ctx)
+	var outputPairs []Pair
+	for _, outputData := range outputDatas {
 		outputPairs = append(outputPairs, UnmarshalPairs(outputData)...)
 	}
+	finalOutput := MarshalPairs(outputPairs)
+	EndSpan(spanUnmarshalCatMarshal)
 
-	output, err := outputHint.Put(ctx, MarshalPairs(outputPairs))
+	spanPut := MakeSpan("driver: reduce.put")
+	ctx = StartSpan(spanPut, ctx)
+	output, err := outputHint.Put(ctx, finalOutput)
 	if err != nil {
 		logrus.Fatal("Failed to put final output: ", err)
 	}
+	EndSpan(spanPut)
+
 	return output
 }
 
