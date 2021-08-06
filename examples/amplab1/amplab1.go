@@ -36,7 +36,7 @@ const pageRankCutoff = 50
 type amplab1 struct{}
 
 func (a *amplab1) Map(_ context.Context, pair mare.Pair) ([]mare.Pair, error) {
-	fields := strings.Split(pair.Key, ",")
+	fields := strings.Split(pair.Value, ",")
 	if len(fields) != 3 {
 		return nil, errors.Errorf("Invalid record: %+v", pair)
 	}
