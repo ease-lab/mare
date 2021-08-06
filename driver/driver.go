@@ -25,11 +25,15 @@ import (
 	"flag"
 	"fmt"
 
+	tracing "github.com/ease-lab/vhive/utils/tracing/go"
+	"github.com/sirupsen/logrus"
+
 	"github.com/ease-lab/mare"
 )
 
 func main() {
 	workerURL := flag.String("workerURL", "127.0.0.1:8080", "URL of the mapper/reducer workers including the port number")
+	zipkinURL := flag.String("zipkinURL", "http://localhost:9411/api/v2/spans", "URL of the Zipkin instance")
 	inputResourceBackend := flag.String("inputResourceBackend", "FILE", "Backend of the input resource. Either one of \"FILE\", \"S3\", or \"XDT\".")
 	interBack := flag.String("interBack", "FILE", "Backend of the intermediate resources.")
 	interHint := flag.String("interHint", "", "Hint for the intermediate resources.")
@@ -37,6 +41,12 @@ func main() {
 	outputHint := flag.String("outputHint", "", "Hint for the final output resources.")
 	nReducers := flag.Int("nReducers", 5, "Number of reducer invocations.")
 	flag.Parse()
+
+	shutdown, err := tracing.InitBasicTracer(*zipkinURL, "driver")
+	if err != nil {
+		logrus.Fatal("Failed to initialize tracer: ", err)
+	}
+	defer shutdown()
 
 	_, locator := mare.Drive(
 		context.Background(),
