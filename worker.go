@@ -49,6 +49,11 @@ func Work(mapper Mapper, reducer Reducer) error {
 
 	var grpcServer *grpc.Server
 	if tracing.IsTracingEnabled() {
+		shutdown, err := tracing.InitBasicTracer(os.Getenv("ZIPKIN_URL"), "worker")
+		if err != nil {
+			logrus.Fatal("Failed to initialize tracer: ", err)
+		}
+		defer shutdown()
 		grpcServer = tracing.GetGRPCServerWithUnaryInterceptor()
 	} else {
 		grpcServer = grpc.NewServer()
